@@ -25,20 +25,20 @@ impl SwiftEC {
             // p256 case : h reducible, g irreducible. A.2
             // let s = 2 * (e.a / -3).sqrt();
             // let ub1 = (-1 / (e.b - e.a * s/3)).sqrt();
-		        // let ub2 = (-1 / (e.b + e.a * s/3)).sqrt();
+            // let ub2 = (-1 / (e.b + e.a * s/3)).sqrt();
             // let sqrtdet = (-16 * (4 * e.a * e.a + 27 * e.b * e.b)).sqrt();
 
             // let z = 4 * e.a * s * ub1 * ub2 * sqrtdet;
             // let az = -3 * s * (ub1 + ub2) * sqrtdet / z;
+            // let bz = -2 * e.a * (ub1 - ub2) * sqrtdet / z;
+            // let cz = -2 * e.a * s * (ub1 + ub2) * sqrtdet / z;
+            // let dz = 16 * e.a * e.a * (ub1 - ub2) + 36 * e.b * s * (ub1 + ub2) / z;
+            // let ez = 24 * e.a * e.b * (ub1 - ub2) - 8 * e.a * e.a * s * (ub1 + ub2) / z;
             let f = e.get_field();
             let az = f.from("79590650173511991483349173699886758896967575878758521100255198758162002409904");
-            // let bz = -2 * e.a * (ub1 - ub2) * sqrtdet / z;
             let bz = f.from("87259034199983582448131960955643677496937372051237793188553049556356375626956");
-            // let cz = -2 * e.a * s * (ub1 + ub2) * sqrtdet / z;
             let cz = f.from("72402878073688514558696546499041629266237135073063586190556865101410190888094");
-            // let dz = 16 * e.a * e.a * (ub1 - ub2) + 36 * e.b * s * (ub1 + ub2) / z;
             let dz = f.from("102868106456433133884483737613882731040771060075621085360470254629499268085043");
-            // let ez = 24 * e.a * e.b * (ub1 - ub2) - 8 * e.a * e.a * s * (ub1 + ub2) / z;
             let ez = f.from("26895936680464261060020821327532362641796128279102205464958515732833961445805");
             let t = f.from("12345");
             SwiftEC { e, az, bz, cz, dz, ez, t }
