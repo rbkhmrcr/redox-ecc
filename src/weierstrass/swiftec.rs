@@ -14,6 +14,7 @@ pub struct SwiftEC {
     cz: FpElt,
     dz: FpElt,
     ez: FpElt,
+    t:  FpElt,
 }
 
 impl SwiftEC {
@@ -39,7 +40,8 @@ impl SwiftEC {
             let dz = f.from("102868106456433133884483737613882731040771060075621085360470254629499268085043");
             // let ez = 24 * e.a * e.b * (ub1 - ub2) - 8 * e.a * e.a * s * (ub1 + ub2) / z;
             let ez = f.from("26895936680464261060020821327532362641796128279102205464958515732833961445805");
-            SwiftEC { e, az, bz, cz, dz, ez }
+            let t = f.from("12345");
+            SwiftEC { e, az, bz, cz, dz, ez, t }
         }
     }
     fn verify(e: &Curve) -> bool {
@@ -58,131 +60,85 @@ impl MapToCurve for SwiftEC {
         let f = self.e.get_field();
         let cmov = FpElt::cmov;
 
-        let mut t1 = u ^ 2u32; //         0.   t1 = u^2
-        t1 = &self.z * &t1; //            1.   t1 = Z * u^2
-        let mut t2 = &t1 ^ 2u32; //       2.   t2 = t1^2
-        let mut x1 = &t1 + &t2; //        3.   x1 = t1 + t2
-        x1 = 1u32 / &x1; //               4.   x1 = inv0(x1)
-        let e1 = x1.is_zero(); //         5.   e1 = x1 == 0
-        x1 = x1 + f.one(); //             6.   x1 = x1 + 1
-        x1 = cmov(&x1, &self.c2, e1); //  7.   x1 = CMOV(x1, c2, e1)
-        x1 = x1 * &self.c1; //            8.   x1 = x1 * c1
-        let mut gx1 = &x1 ^ 2u32; //      9.  gx1 = x1^2
-        gx1 = gx1 + &self.e.a; //         10. gx1 = gx1 + A
-        gx1 = gx1 * &x1; //               11. gx1 = gx1 * x1
-        gx1 = gx1 + &self.e.b; //         12. gx1 = gx1 + B
-        let x2 = &t1 * &x1; //            13.  x2 = t1 * x1
-        t2 = t1 * t2; //                  14.  t2 = t1 * t2
-        let gx2 = &gx1 * &t2; //          15. gx2 = gx1 * t2
-        let e2 = gx1.is_square(); //      16.  e2 = is_square(gx1)
-        let x = cmov(&x2, &x1, e2); //    17.   x = CMOV(x2, x1, e2)
-        let y2 = cmov(&gx2, &gx1, e2); // 18.  y2 = CMOV(gx2, gx1, e2)
-        let mut y = y2.sqrt(); //         19.   y = sqrt(y2)
-        let e3 = u.sgn0() == y.sgn0(); // 20.  e3 = sgn0(u) == sgn0(y)
-        y = cmov(&(-&y), &y, e3); //      21.   y = CMOV(-y, y, e3)
-                                  //
-//        self.e.new_point(x, y)
-//       #Evalaute initial point in conic X(u),Y(u)
-//    X0 = fp_mul(X[2], u)
-//    X0 = fp_add(X0, X[1])
-//    X0 = fp_mul(X0, u)
-//    X0 = fp_add(X0, X[0])
-//    Y0 = fp_mul(Y[1], u)
-//    Y0 = fp_add(Y0, Y[0])
-//
-//    #print("Test X0,Y0,Z0",X0**2+(3*u**2+4*a)*Y0**2+(u**3+a*u+b)==0)
-//
-//    # Evaluate f(u)=3u^2+4a and g(u)=u^3+au+b
-//    f = fp_sqr(u)
-//    g = fp_add(f, a)
-//    g = fp_mul(g, u)
-//    g = fp_add(g, b)
-//    Z1 = fp_add(f, f)
-//    f = fp_add(Z1, f)
-//    f = fp_add(f, ax4)
-//
-//    #print("Test f,g",X0**2+f*Y0**2+g==0)
-//
-//    # Compute new point in conic
-//    #   X1 = f*(Y0-t*X0)^2 + g
-//    #   Z1 = X0(1 + f*t^2)
-//    #   Y1 = Z1*Y0 + t*(X - Z*X0)
-//    Z1 = fp_mul(t, X0)
-//    Y1 = fp_sub(Y0, Z1)
-//    X1 = fp_sqr(Y1)
-//    X1 = fp_mul(X1, f)
-//    X1 = fp_add(X1, g)
-//    Z1 = fp_mul(Z1, t)
-//    Z1 = fp_mul(Z1, f)
-//    Z1 = fp_add(Z1, X0)
-//    Y1 = fp_mul(Y1, Z1)
-//    tX = fp_mul(t, X1)
-//    Y1 = fp_add(Y1, tX)
-//    #assert(not Z1 == 0)
-//
-//    #print("Test X1,Y1,Z1",X1**2+(3*u**2+4*a)*Y1**2+(u**3+a*u+b)*Z1**2==0)
-//
-//    # Compute projective point in surface S
-//    #   y = (2Y1)^2
-//    #   v = X1*Z1 - u*Y1*Z1
-//    #   w = 2*Y1*Z1
-//    y = fp_add(Y1, Y1)
-//    y = fp_sqr(y)
-//    v = fp_mul(Y1, u)
-//    v = fp_sub(X1, v)
-//    v = fp_mul(v, Z1)
-//    w = fp_mul(Y1, Z1)
-//    w = fp_add(w, w)
-//
-//    #print("Tests v,y,w", y**2*(w**2*u**2 + w*v*u + v**2 + w**2*a) == -w**4*(u**3 + a*u + b))
-//
-//
-//
-//    # Compute affine point in V
-//    #   x1 = v/w
-//    #   x2 = -u-v/w
-//    #   x3 = u + y^2/w^2
-//    try:
-//        w = fp_inv(w)
-//    except ZeroDivisionError:
-//        raise PointAtInfinity
-//    x1 = fp_mul(v, w)
-//    x2 = fp_add(u, x1)
-//    x2 = fp_neg(x2)
-//    x3 = fp_mul(y, w)
-//    x3 = fp_sqr(x3)
-//    x3 = fp_add(u, x3)
-//
-//    # Compute g(x_i)
-//    y21 = fp_sqr(x1)
-//    y21 = fp_add(y21, a)
-//    y21 = fp_mul(y21, x1)
-//    y21 = fp_add(y21, b)
-//
-//    y22 = fp_sqr(x2)
-//    y22 = fp_add(y22, a)
-//    y22 = fp_mul(y22, x2)
-//    y22 = fp_add(y22, b)
-//
-//    y23 = fp_sqr(x3)
-//    y23 = fp_add(y23, a)
-//    y23 = fp_mul(y23, x3)
-//    y23 = fp_add(y23, b)
-//
-//    # Find the square
-//    c2 = fp_jacobi(y22)
-//    c3 = fp_jacobi(y23)
-//    x1, x2 = fp_cswap(c2, x1, x2)
-//    y21, y22 = fp_cswap(c2, y21, y22)
-//    x1, x3 = fp_cswap(c3, x1, x3)
-//    y21, y23 = fp_cswap(c3, y21, y23)
-//
-//    # Find the square-root and choose sign
-//    y21 = fp_sqrt(y21)
-//    y22 = fp_neg(y21)
-//    c1 = ((int(y21) % 2) ^ (int(s) % 2))
-//    y21, y22 = fp_cswap(c1, y21, y22)
-//    return x1, y21
+        // finding a fixed point (X0(u), Y0(u)) on the conic
+        // X0 = ( Au^2 + Bu + C ) / Z
+        // Y0 = ( Du + E ) / Z
+        let mut x0 = u ^ 2u32;          //  0. x0 = u^2
+        x0 = &self.az * &x0;            //  1. x0 = A/Z * u^2
+        let mut t1 = &self.bz * u;      //  2. t1 = B/Z * u
+        x0 = &x0 + &t1 + &self.cz;      //  3. x0 = x0 + t1 + C/Z
+        let mut y0 = &self.dz * u;          //  4. y0 = D/Z * u
+        y0 = &y0 + &self.ez;            //  5. y0 = y0 + E/Z
 
+        // define g(u) = u^3 + au + b & h(u) = 3u^2 + 4a (pg 12)
+
+        let mut g = u ^ 2u32;       //  6. g = u^2
+        g = g + &self.e.a;          //  7. g = u^2 + a
+        g = g * u;                  //  8. g = u^3 + au
+        g = g + &self.e.b;          //  9. g = u^3 + au + b
+
+        let mut h = u ^ 2u32;       // 10. h = u^2
+        h = &h + &h + &h;              // 11. h = 3u^2
+        t1 = &self.e.a + &self.e.a + &self.e.a + &self.e.a; // 12. t1 = 4a
+        h = h + &t1;                 // 13. h = 3u^2 + 4a
+
+        // compute new point (X(u,t), Y(u,t)) on the conic
+        // X(u,t) = ( g + (h * (y0 - t * x0)^2) ) / x0 * (1 + t^2 * h)
+        // Y(u,t) = y0 + t * ( X - x0 )
+
+        let mut z1 = &self.t * &x0;        // 14. z1 = t * x0
+        let mut y1 = y0 - &z1;       // 15. y1 = y0 - z1
+        let mut x1 = &y1 ^ 2u32;     // 16. x1 = (y0 - t * x0)^2
+        x1 = x1 * &h;                // 17. x1 = h * (y0 - t * x0)^2
+        x1 = x1 + &g;                // 18. x1 = x1 + g
+        z1 = z1 * &self.t;                // 19. z1 = (t * x0) * t
+        z1 = z1 * &h;                // 20. z1 = z1 * h
+        z1 = z1 + &x0;               // 21. z1 = z1 + x0
+        y1 = y1 * &z1;               // 22. y1 = (y0 - t*x0) * z1
+        t1 = &self.t * &x1;                // 23. t1 = t * x1
+        y1 = &y1 + &t1;               // 24. y1 = y0 + t * ( X - x0 )
+
+        // Compute projective point in surface S
+        // y = (2Y1)^2, v = X1*Z1 - u*Y1*Z1, w = 2*Y1*Z1
+        let mut y = &y1 + &y1;
+        y = &y ^ 2u32;
+        let mut v = &y1 * u;
+        v = &x1 - &v;
+        v = &v * &z1;
+        let mut w = &y1 * &z1;
+        w = &w + &w;
+
+        // Compute affine point in V
+        //  x1 = v/w, x2 = -u-v/w, x3 = u + y^2/w^2
+        w  = 1u32 / &w;
+        x1 = v * &w;
+        let mut x2 = -(u + &x1);
+        let mut x3 = y * w;
+        x3 = x3 ^ 2u32;
+
+
+        // TODO : come back to this so it's not so repetitive?
+        let mut gx1 = &x1 ^ 2u32;       // gx1 = x1^2
+        gx1 = gx1 + &self.e.a;          // gx1 = gx1 + a
+        gx1 = gx1 * &x1;                // gx1 = gx1 * x1
+        gx1 = gx1 + &self.e.b;          // gx1 = x1^3 + ax1 + b
+
+        let mut gx2 = &x2 ^ 2u32;       // gx2 = x2^2
+        gx2 = gx2 + &self.e.a;          // gx2 = gx2 + a
+        gx2 = gx2 * &x2;                // gx2 = gx2 * x2
+        gx2 = gx2 + &self.e.b;          // gx2 = x2^3 + ax2 + b
+
+        let mut gx3 = &x3 ^ 2u32;       // gx3 = x3^2
+        gx3 = gx3 + &self.e.a;          // gx3 = gx3 + a
+        gx3 = gx3 * &x3;                // gx3 = gx3 * x3
+        gx3 = gx3 + &self.e.b;          // gx3 = x3^3 + ax3 + b
+
+        let e2 = gx1.is_square();
+        let x = cmov(&x2, &x1, e2);
+        let y2 = cmov(&gx2, &gx1, e2);
+        let mut y = y2.sqrt();
+        let e3 = u.sgn0() == y.sgn0();
+        y = cmov(&(-&y), &y, e3);
+        self.e.new_point(x, y)
     }
 }
