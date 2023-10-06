@@ -1,6 +1,6 @@
 [package]
 name = "redox-ecc"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Armando Faz Hernandez"]
 edition = "2021"
 description = "elliptic curve arithmetic"
