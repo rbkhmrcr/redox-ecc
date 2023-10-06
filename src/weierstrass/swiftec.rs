@@ -57,46 +57,45 @@ impl MapToCurve for SwiftEC {
         &self,
         u: &<<Self::E as EllipticCurve>::F as Field>::Elt,
     ) -> <Self::E as EllipticCurve>::Point {
-        let f = self.e.get_field();
         let cmov = FpElt::cmov;
 
         // finding a fixed point (X0(u), Y0(u)) on the conic
         // X0 = ( Au^2 + Bu + C ) / Z
         // Y0 = ( Du + E ) / Z
-        let mut x0 = u ^ 2u32;          //  0. x0 = u^2
-        x0 = &self.az * &x0;            //  1. x0 = A/Z * u^2
-        let mut t1 = &self.bz * u;      //  2. t1 = B/Z * u
-        x0 = &x0 + &t1 + &self.cz;      //  3. x0 = x0 + t1 + C/Z
+        let mut x0 = u ^ 2u32;              //  0. x0 = u^2
+        x0 = &self.az * &x0;                //  1. x0 = A/Z * u^2
+        let mut t1 = &self.bz * u;          //  2. t1 = B/Z * u
+        x0 = &x0 + &t1 + &self.cz;          //  3. x0 = x0 + t1 + C/Z
         let mut y0 = &self.dz * u;          //  4. y0 = D/Z * u
-        y0 = &y0 + &self.ez;            //  5. y0 = y0 + E/Z
+        y0 = &y0 + &self.ez;                //  5. y0 = y0 + E/Z
 
         // define g(u) = u^3 + au + b & h(u) = 3u^2 + 4a (pg 12)
 
-        let mut g = u ^ 2u32;       //  6. g = u^2
-        g = g + &self.e.a;          //  7. g = u^2 + a
-        g = g * u;                  //  8. g = u^3 + au
-        g = g + &self.e.b;          //  9. g = u^3 + au + b
+        let mut g = u ^ 2u32;               //  6. g = u^2
+        g = g + &self.e.a;                  //  7. g = u^2 + a
+        g = g * u;                          //  8. g = u^3 + au
+        g = g + &self.e.b;                  //  9. g = u^3 + au + b
 
-        let mut h = u ^ 2u32;       // 10. h = u^2
-        h = &h + &h + &h;              // 11. h = 3u^2
+        let mut h = u ^ 2u32;               // 10. h = u^2
+        h = &h + &h + &h;                   // 11. h = 3u^2
         t1 = &self.e.a + &self.e.a + &self.e.a + &self.e.a; // 12. t1 = 4a
-        h = h + &t1;                 // 13. h = 3u^2 + 4a
+        h = h + &t1;                        // 13. h = 3u^2 + 4a
 
         // compute new point (X(u,t), Y(u,t)) on the conic
         // X(u,t) = ( g + (h * (y0 - t * x0)^2) ) / x0 * (1 + t^2 * h)
         // Y(u,t) = y0 + t * ( X - x0 )
 
-        let mut z1 = &self.t * &x0;        // 14. z1 = t * x0
-        let mut y1 = y0 - &z1;       // 15. y1 = y0 - z1
-        let mut x1 = &y1 ^ 2u32;     // 16. x1 = (y0 - t * x0)^2
-        x1 = x1 * &h;                // 17. x1 = h * (y0 - t * x0)^2
-        x1 = x1 + &g;                // 18. x1 = x1 + g
-        z1 = z1 * &self.t;                // 19. z1 = (t * x0) * t
-        z1 = z1 * &h;                // 20. z1 = z1 * h
-        z1 = z1 + &x0;               // 21. z1 = z1 + x0
-        y1 = y1 * &z1;               // 22. y1 = (y0 - t*x0) * z1
-        t1 = &self.t * &x1;                // 23. t1 = t * x1
-        y1 = &y1 + &t1;               // 24. y1 = y0 + t * ( X - x0 )
+        let mut z1 = &self.t * &x0;         // 14. z1 = t * x0
+        let mut y1 = y0 - &z1;              // 15. y1 = y0 - z1
+        let mut x1 = &y1 ^ 2u32;            // 16. x1 = (y0 - t * x0)^2
+        x1 = x1 * &h;                       // 17. x1 = h * (y0 - t * x0)^2
+        x1 = x1 + &g;                       // 18. x1 = x1 + g
+        z1 = z1 * &self.t;                  // 19. z1 = (t * x0) * t
+        z1 = z1 * &h;                       // 20. z1 = z1 * h
+        z1 = z1 + &x0;                      // 21. z1 = z1 + x0
+        y1 = y1 * &z1;                      // 22. y1 = (y0 - t*x0) * z1
+        t1 = &self.t * &x1;                 // 23. t1 = t * x1
+        y1 = &y1 + &t1;                     // 24. y1 = y0 + t * ( X - x0 )
 
         // Compute projective point in surface S
         // y = (2Y1)^2, v = X1*Z1 - u*Y1*Z1, w = 2*Y1*Z1
@@ -112,27 +111,28 @@ impl MapToCurve for SwiftEC {
         //  x1 = v/w, x2 = -u-v/w, x3 = u + y^2/w^2
         w  = 1u32 / &w;
         x1 = v * &w;
-        let mut x2 = -(u + &x1);
+        let x2 = -(u + &x1);
         let mut x3 = y * w;
         x3 = x3 ^ 2u32;
 
 
         // TODO : come back to this so it's not so repetitive?
-        let mut gx1 = &x1 ^ 2u32;       // gx1 = x1^2
-        gx1 = gx1 + &self.e.a;          // gx1 = gx1 + a
-        gx1 = gx1 * &x1;                // gx1 = gx1 * x1
-        gx1 = gx1 + &self.e.b;          // gx1 = x1^3 + ax1 + b
+        let mut gx1 = &x1 ^ 2u32;           // gx1 = x1^2
+        gx1 = gx1 + &self.e.a;              // gx1 = gx1 + a
+        gx1 = gx1 * &x1;                    // gx1 = gx1 * x1
+        gx1 = gx1 + &self.e.b;              // gx1 = x1^3 + ax1 + b
 
-        let mut gx2 = &x2 ^ 2u32;       // gx2 = x2^2
-        gx2 = gx2 + &self.e.a;          // gx2 = gx2 + a
-        gx2 = gx2 * &x2;                // gx2 = gx2 * x2
-        gx2 = gx2 + &self.e.b;          // gx2 = x2^3 + ax2 + b
+        let mut gx2 = &x2 ^ 2u32;           // gx2 = x2^2
+        gx2 = gx2 + &self.e.a;              // gx2 = gx2 + a
+        gx2 = gx2 * &x2;                    // gx2 = gx2 * x2
+        gx2 = gx2 + &self.e.b;              // gx2 = x2^3 + ax2 + b
 
-        let mut gx3 = &x3 ^ 2u32;       // gx3 = x3^2
-        gx3 = gx3 + &self.e.a;          // gx3 = gx3 + a
-        gx3 = gx3 * &x3;                // gx3 = gx3 * x3
-        gx3 = gx3 + &self.e.b;          // gx3 = x3^3 + ax3 + b
-
+        /*
+        let mut gx3 = &x3 ^ 2u32;           // gx3 = x3^2
+        gx3 = gx3 + &self.e.a;              // gx3 = gx3 + a
+        gx3 = gx3 * &x3;                    // gx3 = gx3 * x3
+        gx3 = gx3 + &self.e.b;              // gx3 = x3^3 + ax3 + b
+        */
         let e2 = gx1.is_square();
         let x = cmov(&x2, &x1, e2);
         let y2 = cmov(&gx2, &gx1, e2);
